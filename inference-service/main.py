@@ -1,8 +1,10 @@
 import os
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
+
+app = FastAPI(title="Predictive Maintenance API", description="AI Service to detect machine failures")
 
 # 1. Setup paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -16,12 +18,13 @@ app = FastAPI()
 
 # 3. Define the data format once
 class MachineData(BaseModel):
-    machine_type: str  # Expects 'L', 'M', or 'H'
-    air_temperature: float
-    process_temperature: float
-    rotational_speed: int
-    torque: float
-    tool_wear: int
+    # Field allows you to set default values and descriptions for the UI
+    machine_type: str = Field(..., example="L", description="Type of machine: L (Low), M (Medium), or H (High)")
+    air_temperature: float = Field(..., example=298.1, description="Air temperature in Kelvin")
+    process_temperature: float = Field(..., example=308.6, description="Process temperature in Kelvin")
+    rotational_speed: int = Field(..., example=1551, description="Rotational speed in RPM")
+    torque: float = Field(..., example=42.8, description="Torque in Nm")
+    tool_wear: int = Field(..., example=0, description="Tool wear in minutes")
 
 @app.get("/health")
 def health_check():
@@ -29,27 +32,17 @@ def health_check():
 
 @app.post("/predict")
 def predict_failure(data: MachineData):
-    # Convert 'L/M/H' to numerical value
+    # prediction logic
     type_encoded = le.transform([data.machine_type])[0]
+    input_data = [[type_encoded, data.air_temperature, data.process_temperature, 
+                    data.rotational_speed, data.torque, data.tool_wear]]
     
-    # Create the input list in the exact order used during training
-    input_data = [[
-        type_encoded, 
-        data.air_temperature, 
-        data.process_temperature, 
-        data.rotational_speed, 
-        data.torque, 
-        data.tool_wear
-    ]]
-    
-    prediction = model.predict(input_data)
-    
-    # Get probability if available
-    probability = 1.0
-    if hasattr(model, "predict_proba"):
-        probability = model.predict_proba(input_data).max()
+    prediction = model.predict(input_data)[0]
+    # confidence score
+    probability = model.predict_proba(input_data)[0].max()
     
     return {
-        "failure_predicted": int(prediction[0]),
-        "confidence": float(probability)
+        "status": "Success",
+        "failure_predicted": "Yes" if prediction == 1 else "No",
+        "confidence": f"{round(probability * 100, 2)}%"
     }
