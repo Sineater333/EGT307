@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 import joblib
+from sklearn.metrics import classification_report
+from imblearn.over_sampling import SMOTE
 
 
 dataset_path = kagglehub.dataset_download("stephanmatzka/predictive-maintenance-dataset-ai4i-2020")
@@ -28,12 +30,25 @@ y = df['Machine failure']
 # 4. Split the data for trainand test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+smote = SMOTE(random_state=42)
+X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
+
 # Train  Random Forest model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+model = RandomForestClassifier(n_estimators=100, class_weight='balanced', random_state=42)
+model.fit(X_train_res, y_train_res)
+y_pred = model.predict(X_test)
+
+print("--- Model Performance (SMOTE) ---")
+print(classification_report(y_test, y_pred))
 
 # 6. Save the model and the label encoder 
 joblib.dump(model, os.path.join(model_path, 'model.pkl'))
 joblib.dump(le, os.path.join(model_path, 'label_encoder.pkl'))
+accuracy = model.score(X_test, y_test)
+with open(os.path.join(model_path, 'metrics.txt'), 'w') as f:
+    f.write(f"Accuracy: {accuracy:.2f}")
+    f.write("\nClassification Report:\n")
+    f.write(classification_report(y_test, y_pred))
 
-print(f"Model and Encoder saved in the '{model_path}' folder.")
+
+print(f"Model, encoder and metrics saved in the '{model_path}' folder.")
