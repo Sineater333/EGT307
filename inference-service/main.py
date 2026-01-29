@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -10,8 +11,13 @@ app = FastAPI(title="Predictive Maintenance API", description="AI Service to det
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
+# Define CSV Log Path
+LOG_FILE = os.path.join(BASE_DIR, "logs", "prediction_history.csv")
+os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+
 # 2. Load the artifacts (Ensure these files exist in the /models folder!)
-model = joblib.load(os.path.join(MODEL_DIR, "model.pkl"))
+binary_model = joblib.load(os.path.join(MODEL_DIR, "binary_model.pkl"))
+type_model = joblib.load(os.path.join(MODEL_DIR, "type_model.pkl"))
 le = joblib.load(os.path.join(MODEL_DIR, "label_encoder.pkl"))
 
 app = FastAPI()
@@ -37,12 +43,23 @@ def predict_failure(data: MachineData):
     input_data = [[type_encoded, data.air_temperature, data.process_temperature, 
                     data.rotational_speed, data.torque, data.tool_wear]]
     
-    prediction = model.predict(input_data)[0]
-    # confidence score
-    probability = model.predict_proba(input_data)[0].max()
+    # 1. Check if broken
+    is_failing = binary_model.predict(input_data)[0]
+
+    cause = "None"
+    if is_failing == 1:
+        # 2. If broken, ask the second model why
+        cause = type_model.predict(input_data)[0]
     
-    return {
-        "status": "Success",
-        "failure_predicted": "Yes" if prediction == 1 else "No",
-        "confidence": f"{round(probability * 100, 2)}%"
+    result = {
+        "status": "Healthy" if is_failing == 0 else "Failure Detected",
+        "failure_cause": cause,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
+
+    # 3. Logging Logic
+    # This history will be for our dashboard
+    df_log = pd.DataFrame([{**data.dict(), **result}])
+    df_log.to_csv(LOG_FILE, mode='a', header=not os.path.exists(LOG_FILE), index=False)
+
+    return result

@@ -1,10 +1,23 @@
-Accuracy: 0.96
-Classification Report:
+THRESHOLD USED: 0.55
+STAGE 1: BINARY CLASSIFIER
               precision    recall  f1-score   support
 
            0       0.99      0.97      0.98      1939
-           1       0.44      0.74      0.55        61
+           1       0.44      0.67      0.53        61
 
     accuracy                           0.96      2000
-   macro avg       0.71      0.85      0.76      2000
+   macro avg       0.71      0.82      0.76      2000
 weighted avg       0.97      0.96      0.97      2000
+
+==================================================
+STAGE 2: FAILURE TYPE SPECIALIST
+              precision    recall  f1-score   support
+
+         HDF       1.00      0.95      0.98        21
+         OSF       0.77      1.00      0.87        17
+         PWF       0.77      0.83      0.80        12
+         TWF       1.00      0.72      0.84        18
+
+    accuracy                           0.88        68
+   macro avg       0.89      0.88      0.87        68
+weighted avg       0.90      0.88      0.88        68
