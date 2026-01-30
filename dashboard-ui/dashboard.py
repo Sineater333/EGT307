@@ -1,6 +1,9 @@
 import streamlit as st
 import requests
 import pandas as pd
+import os
+
+api_url = os.getenv("INFERENCE_URL", "http://127.0.0.1:8000/predict")
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -100,7 +103,7 @@ if run_diagnostic:
     with st.spinner("Analyzing sensor telemetry..."):
         try:
             # Tip: Replace 'localhost' with an environment variable for K8s deployment
-            response = requests.post("http://localhost:8000/predict", json=payload, timeout=5)
+            response = requests.post(api_url, json=payload, timeout=5)
             response.raise_for_status() 
             result = response.json()
             
@@ -108,19 +111,24 @@ if run_diagnostic:
             st.subheader("Diagnostic Results")
             res_col1, res_col2 = st.columns(2)
 
-            confidence_val = float(result['confidence'].replace('%', '')) / 100
-
-            if result["failure_predicted"] == "Yes":
-                res_col1.error("### ⚠️ FAILURE DETECTED")
-                res_col2.metric("Confidence Score", result['confidence'], delta="- CRITICAL", delta_color="grey")
-                st.warning("**Recommendation:** Schedule immediate maintenance. Check tool wear and torque alignment.")
+            # 1. Handle Status and Icons
+            if result["status"] == "Failure Detected":
+                res_col1.error(f"### ⚠️ {result['status']}")
+                
+                # 2. Display the Specific Cause from the Specialist Model
+                # We use a metric or a large subheader for the cause
+                res_col2.metric("Primary Cause", result["failure_cause"], delta="- CRITICAL", delta_color="normal")
+                
+                st.warning(f"**Action Required:** Technical team should investigate **{result['failure_cause']}** immediately.")
+                st.info(f"Report generated at: {result['timestamp']}")
             else:
-                res_col1.success("### ✅ MACHINE HEALTHY")
-                res_col2.metric("Confidence Score", result['confidence'], delta="NOMINAL")
+                res_col1.success(f"### ✅ {result['status']}")
+                res_col2.metric("Machine State", "NOMINAL", delta="Optimal")
+                st.write(f"Last checked: {result['timestamp']}")
 
         except requests.exceptions.RequestException as e:
             st.error(f"❌ API Connection Error: {e}")
-            st.info("Ensure the backend FastAPI service is running on port 8000.")
+            st.info("Check if your FastAPI server is running (uvicorn main:app).")
 
 # --- Footer/Data Preview ---
 if 'payload' in locals():

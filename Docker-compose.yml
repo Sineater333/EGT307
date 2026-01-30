@@ -1,0 +1,19 @@
+services:
+  inference-service:
+    build: ./inference-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./inference-service/logs:/app/logs # Persists history CSV locally
+    environment:
+      - TZ=Asia/Singapore
+
+  dashboard-ui:
+    build: ./dashboard-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - INFERENCE_URL=http://inference-service:8000/predict
+      - TZ=Asia/Singapore
+    depends_on:
+      - inference-service

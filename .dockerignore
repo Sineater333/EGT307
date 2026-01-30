@@ -1,0 +1,13 @@
+# Exclude Python virtual environments
+.venv/
+venv/
+ENV/
+bin/
+lib/
+
+# Exclude Python cache files
+**/__pycache__/
+
+# Exclude Git metadata
+.git/
+.gitignore
