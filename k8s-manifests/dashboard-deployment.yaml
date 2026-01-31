@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+      - name: dashboard-ui
+        image: taiweien/egt307-dashboard:v1
+        ports:
+        - containerPort: 8501
+        env:
+        - name: INFERENCE_URL
+          value: "http://inference-service:8000/predict" # Points to the internal K8s service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-service
+spec:
+  selector:
+    app: dashboard
+  ports:
+  - protocol: TCP
+    port: 8501
+    targetPort: 8501
+  type: LoadBalancer # Allows access to the UI from personal browser

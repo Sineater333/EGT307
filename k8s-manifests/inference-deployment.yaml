@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-deployment
+spec:
+  replicas: 2 # Starts with 2 pods for fault tolerance
+  selector:
+    matchLabels:
+      app: inference
+  template:
+    metadata:
+      labels:
+        app: inference
+    spec:
+      containers:
+      - name: inference-api
+        image: taiweien/egt307-inference:v1 
+        resources:
+          requests:
+            cpu: "100m"  # For HPA to calculate percentage
+          limits:
+            cpu: "200m"  
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-service
+spec:
+  selector:
+    app: inference
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP # Internal only, accessible by other pods like the Dashboard
