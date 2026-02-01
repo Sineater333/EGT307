@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./inference-service/logs:/app/logs # Persists history CSV locally
+      - ./inference-service/logs:/app/logs # Persists history CSV locally, trial before using DB
     environment:
       - TZ=Asia/Singapore
 
@@ -13,7 +13,16 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - INFERENCE_URL=http://inference-service:8000/predict
+      - GATEWAY_URL=http://api-gateway:8080/route/predict
       - TZ=Asia/Singapore
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - INFERENCE_URL=http://inference-service:8000/predict
     depends_on:
       - inference-service
