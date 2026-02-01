@@ -40,16 +40,22 @@ def health_check():
 def predict_failure(data: MachineData):
     # prediction logic
     type_encoded = le.transform([data.machine_type])[0]
-    input_data = [[type_encoded, data.air_temperature, data.process_temperature, 
-                    data.rotational_speed, data.torque, data.tool_wear]]
+    features_df = pd.DataFrame([{
+        "Type": type_encoded,
+        "Air temperature [K]": data.air_temperature,
+        "Process temperature [K]": data.process_temperature,
+        "Rotational speed [rpm]": data.rotational_speed,
+        "Torque [Nm]": data.torque,
+        "Tool wear [min]": data.tool_wear
+    }])
     
     # 1. Check if broken
-    is_failing = binary_model.predict(input_data)[0]
+    is_failing = int(binary_model.predict(features_df)[0])
 
     cause = "None"
     if is_failing == 1:
         # 2. If broken, ask the second model why
-        cause = type_model.predict(input_data)[0]
+        cause = type_model.predict(features_df)[0]
     
     result = {
         "status": "Healthy" if is_failing == 0 else "Failure Detected",
@@ -59,7 +65,7 @@ def predict_failure(data: MachineData):
 
     # 3. Logging Logic
     # This history will be for our dashboard
-    df_log = pd.DataFrame([{**data.dict(), **result}])
+    df_log = pd.DataFrame([{**data.model_dump(), **result}])
     df_log.to_csv(LOG_FILE, mode='a', header=not os.path.exists(LOG_FILE), index=False)
 
     return result
