@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: dashboard-ui
-        image: taiweien/egt307-dashboard:v1
+        image: taiweien/egt307-dashboard:v2 # use the name of whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
         ports:
         - containerPort: 8501
         env:
-        - name: INFERENCE_URL
-          value: "http://inference-service:8000/predict" # Points to the internal K8s service
+        - name: GATEWAY_URL
+          value: "http://api-gateway:8080/route/predict" # Points to the API Gateway service
 ---
 apiVersion: v1
 kind: Service
