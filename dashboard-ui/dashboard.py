@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import os
 
-api_url = os.getenv("INFERENCE_URL", "http://127.0.0.1:8000/predict")
+api_url = os.getenv("GATEWAY_URL", "http://api-gateway:8080/route/predict")
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -55,8 +55,17 @@ st.info("Real-time diagnostic tool for predictive maintenance on the factory flo
 # --- Sidebar: Configuration & Reference ---
 with st.sidebar:
     st.header("Settings & Metadata")
-    st.write("**Model Version:** v2.4.1-stable")
-    st.write("**Environment:** Kubernetes Production")
+    try:
+        # Check the health of the Gateway
+        health_resp = requests.get(api_url.replace("/route/predict", "/health"), timeout=2)
+        if health_resp.status_code == 200:
+            st.success("● Gateway Online")
+        else:
+            st.warning("● Gateway Issues")
+    except:
+        st.error("● Gateway Offline")
+        
+    st.markdown("---")
     st.divider()
     if st.button("Reset Inputs"):
         st.rerun()
