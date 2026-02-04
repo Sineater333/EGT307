@@ -14,12 +14,14 @@ spec:
     spec:
       containers:
       - name: dashboard-ui
-        image: taiweien/egt307-dashboard:v2 # use the name of whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
+        image: taiweien/egt307-dashboard:v3 # use the name of whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
         ports:
         - containerPort: 8501
         env:
         - name: GATEWAY_URL
           value: "http://api-gateway:8080/route/predict" # Points to the API Gateway service
+        - name: DB_HISTORY_URL
+          value: "http://database-service:8000/history" # Points to the DB service
 ---
 apiVersion: v1
 kind: Service

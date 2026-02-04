@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: inference-api
-        image: taiweien/egt307-inference:v1 
+        image: taiweien/egt307-inference:v3 # use the name of whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
         resources:
           requests:
             cpu: "100m"  # For HPA to calculate percentage
@@ -22,6 +22,10 @@ spec:
             cpu: "200m"  
         ports:
         - containerPort: 8000
+        env:
+        - name: DB_SERVICE_URL
+          value: "http://database-service:8000/logs"
+
 ---
 apiVersion: v1
 kind: Service
