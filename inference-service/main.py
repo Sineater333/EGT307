@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
+import httpx
 
 app = FastAPI(title="Predictive Maintenance API", description="AI Service to detect machine failures")
 
@@ -11,9 +12,8 @@ app = FastAPI(title="Predictive Maintenance API", description="AI Service to det
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
-# Define CSV Log Path
-LOG_FILE = os.path.join(BASE_DIR, "logs", "prediction_history.csv")
-os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+# Define Database Service URL
+DB_SERVICE_URL = os.getenv("DB_SERVICE_URL", "http://database-service:8000/logs")
 
 # 2. Load the artifacts (Ensure these files exist in the /models folder!)
 binary_model = joblib.load(os.path.join(MODEL_DIR, "binary_model.pkl"))
@@ -37,7 +37,7 @@ def health_check():
     return {"status": "healthy"}
 
 @app.post("/predict")
-def predict_failure(data: MachineData):
+async def predict_failure(data: MachineData):
     # prediction logic
     type_encoded = le.transform([data.machine_type])[0]
     features_df = pd.DataFrame([{
@@ -58,14 +58,26 @@ def predict_failure(data: MachineData):
         cause = type_model.predict(features_df)[0]
     
     result = {
+        "machine_type": data.machine_type,
+        "air_temperature": data.air_temperature,
+        "process_temperature": data.process_temperature,
+        "rotational_speed": data.rotational_speed,
+        "torque": data.torque,
+        "tool_wear": data.tool_wear,
         "status": "Healthy" if is_failing == 0 else "Failure Detected",
         "failure_cause": cause,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-
-    # 3. Logging Logic
-    # This history will be for our dashboard
-    df_log = pd.DataFrame([{**data.model_dump(), **result}])
-    df_log.to_csv(LOG_FILE, mode='a', header=not os.path.exists(LOG_FILE), index=False)
-
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            db_response = await client.post(DB_SERVICE_URL, json=result, timeout=5.0)
+            if db_response.status_code == 200:
+                print(f"✅ Successfully logged to DB: {db_response.json()}")
+            else:
+                # This will print the EXACT reason the DB rejected the data
+                print(f"❌ DB Service rejected data (Status {db_response.status_code}): {db_response.text}")
+        except Exception as e:
+            print(f"⚠️ Failed to connect to database: {e}")
+    
     return result
