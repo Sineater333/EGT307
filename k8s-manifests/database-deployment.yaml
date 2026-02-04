@@ -1,0 +1,87 @@
+# 1. PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi # hopefully enough for many machine logs
+---
+# 2. za database: MongoDB Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:latest
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-storage
+          mountPath: /data/db # Standard Mongo data directory
+      volumes:
+      - name: mongo-storage
+        persistentVolumeClaim:
+          claimName: mongo-pvc
+---
+# 3. DATABASE SERVICE (INTERNAL DNS)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# 4. DB WRAPPER SERVICE (The Python Logic)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-service-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-service
+  template:
+    metadata:
+      labels:
+        app: database-service
+    spec:
+      containers:
+      - name: database-service
+        image: taiweien/egt307-database:v1 #change to whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MONGO_URL
+          value: "mongodb://mongodb:27017"
+---
+# 5. DB SERVICE WRAPPER (INTERNAL DNS)
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service
+spec:
+  selector:
+    app: database-service
+  ports:
+    - port: 8000
+      targetPort: 8000
