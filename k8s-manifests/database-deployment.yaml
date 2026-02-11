@@ -18,6 +18,7 @@ spec:
         image: taiweien/egt307-database:v2 
         ports:
         - containerPort: 8000
+        # --- SECRETS ---
         env:
         - name: MONGO_URL
           valueFrom:
