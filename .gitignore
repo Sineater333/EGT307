@@ -1,3 +1,5 @@
 # .gitignore for EGT307
 pycache__/
 *.pyc
+
+.env

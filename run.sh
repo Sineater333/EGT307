@@ -9,6 +9,25 @@ YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+echo -e "${CYAN}--- Loading Environment Variables ---${NC}"
+
+# Check if .env exists, if not, check for .env.example
+if [ ! -f .env ]; then
+    echo -e "${YELLOW}Missing .env file!${NC}"
+    if [ -f .env.example ]; then
+        echo -e "Creating .env from template... please edit it with your Atlas URL."
+        cp .env.example .env
+    fi
+    exit 1
+fi
+
+# Load .env without exporting comments
+set -a
+source .env
+set +a
+
+echo -e "${GREEN}Environment loaded successfully.${NC}"
+
 echo -e "${CYAN}--- Starting Minikube ---${NC}"
 minikube start --driver=docker --cpus 4 --memory 4096 --wait=all
 
@@ -19,9 +38,14 @@ kubectl config use-context minikube
 echo -e "${CYAN}--- Enabling Metrics Server ---${NC}"
 minikube addons enable metrics-server
 
-echo -e "${CYAN}--- Injecting MongoDB Secret ---${NC}"
-ATLAS_URL='mongodb+srv://232559W:1234567890@egt307.cuyzbyz.mongodb.net/maintenance_db?retryWrites=true&w=majority&appName=EGT307'
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+else
+    echo "Error: .env file not found. Please create one with ATLAS_URL."
+    exit 1
+fi
 
+echo -e "${CYAN}--- Injecting MongoDB Secret ---${NC}"
 kubectl create secret generic mongodb-atlas-secret \
   --from-literal=atlas-url="$ATLAS_URL" \
   --dry-run=client -o yaml | kubectl apply -f -
