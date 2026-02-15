@@ -45,10 +45,15 @@ else
     exit 1
 fi
 
-echo -e "${CYAN}--- Injecting MongoDB Secret ---${NC}"
-kubectl create secret generic mongodb-atlas-secret \
-  --from-literal=atlas-url="$ATLAS_URL" \
-  --dry-run=client -o yaml | kubectl apply -f -
+echo -e "${CYAN}--- Syncing Kubernetes Secrets ---${NC}"
+
+# Check if secret exists and delete it to ensure it updates with the latest .env values
+kubectl delete secret mongodb-atlas-secret --ignore-not-found
+
+# Create the secret directly from the file
+kubectl create secret generic mongodb-atlas-secret --from-env-file=.env
+
+echo -e "${GREEN}Secrets synced from .env file successfully.${NC}"
 
 echo -e "${CYAN}--- Applying Manifests ---${NC}"
 kubectl apply -k ./k8s-manifests/

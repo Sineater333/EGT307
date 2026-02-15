@@ -24,7 +24,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: mongodb-atlas-secret  # The name of the secret
-              key: atlas-url
+              key: ATLAS_URL  # The key in the secret that contains the MongoDB URI
 ---
 # 2. DB SERVICE WRAPPER (INTERNAL DNS)
 apiVersion: v1
