@@ -18,13 +18,39 @@ spec:
         image: taiweien/egt307-database:v2 
         ports:
         - containerPort: 8000
-        # --- SECRETS ---
+        
+        # --- RESOURCE MANAGEMENT ---
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+
+        # --- HEALTH CHECKS ---
+        # Readiness: Don't let other services talk to the DB until Python is up
+        readinessProbe:
+          httpGet:
+            path: /health  
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        
+        # Liveness: Restart if the DB connection hangs or the service crashes
+        livenessProbe:
+          httpGet:
+            path: /health  
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
         env:
         - name: MONGO_URL
           valueFrom:
             secretKeyRef:
-              name: mongodb-atlas-secret  # The name of the secret
-              key: ATLAS_URL  # The key in the secret that contains the MongoDB URI
+              name: mongodb-atlas-secret
+              key: ATLAS_URL  # Ensure this matches the key name in the .env
 ---
 # 2. DB SERVICE WRAPPER (INTERNAL DNS)
 apiVersion: v1

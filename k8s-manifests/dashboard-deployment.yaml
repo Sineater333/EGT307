@@ -14,14 +14,38 @@ spec:
     spec:
       containers:
       - name: dashboard-ui
-        image: taiweien/egt307-dashboard:v3 # use the name of whoever built and pushed the image to Docker Hub, Rmb to change the tag if needed
+        image: taiweien/egt307-dashboard:v3 
         ports:
         - containerPort: 8501
+        
+        # --- RESOURCE MANAGEMENT ---
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+
+        # --- HEALTH CHECKS (SELF-HEALING) ---
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 15  # Streamlit needs a bit of time to spin up
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
         env:
         - name: GATEWAY_URL
-          value: "http://api-gateway:8080/route/predict" # Points to the API Gateway service
+          value: "http://api-gateway:8080/route/predict" 
         - name: DB_HISTORY_URL
-          value: "http://database-service:8000/history" # Points to the DB service
+          value: "http://database-service:8000/history" 
 ---
 apiVersion: v1
 kind: Service
@@ -34,4 +58,4 @@ spec:
   - protocol: TCP
     port: 8501
     targetPort: 8501
-  type: LoadBalancer # Allows access to the UI from personal browser
+  type: LoadBalancer
