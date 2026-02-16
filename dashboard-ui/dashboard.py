@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import os
+import plotly.express as px  # Added for advanced charting
 
 # --- Environment Variables for K8s ---
 # gateway handles the live predictions
@@ -38,7 +39,7 @@ st.markdown("""
 st.title("🛠️ Machine Health Predictor")
 
 # --- Tabs for Navigation ---
-tab1, tab2 = st.tabs(["🚀 Real-Time Diagnostic", "📜 Maintenance Logs"])
+tab1, tab2, tab3 = st.tabs(["🚀 Real-Time Diagnostic", "📜 Maintenance Logs", "📊 Analytics Dashboard"])
 
 with tab1:
     st.info("Real-time diagnostic tool for predictive maintenance on the factory floor.")
@@ -114,6 +115,79 @@ with tab2:
                     st.info("The database is currently empty.")
         except Exception as e:
             st.error(f"Could not connect to Database Service: {e}")
+
+with tab3:
+    st.subheader("📊 Fleet Analytics Dashboard")
+    st.write("Visual breakdown of machine performance and failure correlations.")
+
+    # Fetch data for charts
+    try:
+        resp = requests.get(db_history_url, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data:
+            df = pd.DataFrame(data)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            # --- Row 1: Executive Summary ---
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                st.markdown("### 1. Fleet Health Status")
+                # Pie Chart for Nominal vs Failure
+                fig_pie = px.pie(df, names='status', hole=0.4, 
+                                 color='status', 
+                                 color_discrete_map={'No Failure': '#2ecc71', 'Failure Detected': '#e74c3c'})
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+            with col_b:
+                st.markdown("### 2. Failure Distribution")
+                # Filter only failures for the bar chart
+                fail_df = df[df['failure_cause'] != "None"]
+                if not fail_df.empty:
+                    fig_bar = px.bar(fail_df['failure_cause'].value_counts().reset_index(), 
+                                     x='count', y='failure_cause', orientation='h',
+                                     labels={'count': 'Incidents', 'failure_cause': 'Reason'},
+                                     color='failure_cause')
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                else:
+                    st.success("No failures recorded in history!")
+
+            st.divider()
+
+            # --- Row 2: Correlation Analysis ---
+            col_c, col_d = st.columns(2)
+
+            with col_c:
+                st.markdown("### 3. Thermal Danger Zones")
+                # Scatter Plot: Air vs Process Temp
+                fig_scatter = px.scatter(df, x='air_temperature', y='process_temperature', 
+                                         color='status', hover_data=['machine_type'],
+                                         title="Air Temp vs Process Temp Correlation")
+                st.plotly_chart(fig_scatter, use_container_width=True)
+
+            with col_d:
+                st.markdown("### 4. Mechanical Stress (Wear vs Torque)")
+                # Bubble Chart: Tool Wear vs Torque
+                fig_bubble = px.scatter(df, x='tool_wear', y='torque', 
+                                        size='rotational_speed', color='status',
+                                        title="Tool Wear vs Torque (Size=RPM)")
+                st.plotly_chart(fig_bubble, use_container_width=True)
+
+            st.divider()
+
+            # --- Row 3: Telemetry Over Time ---
+            st.markdown("### 5. Sensor Telemetry Drift (Recent Logs)")
+            # Line Chart for Trends
+            chart_df = df.sort_values("timestamp").tail(50) # Show last 50 for clarity
+            st.line_chart(chart_df.set_index('timestamp')[['rotational_speed', 'torque']])
+            
+        else:
+            st.warning("No data available to generate charts. Run some diagnostics first!")
+            
+    except Exception as e:
+        st.error(f"Analytics Error: {e}")
 
 # --- Sidebar ---
 with st.sidebar:
