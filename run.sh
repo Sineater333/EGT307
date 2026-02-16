@@ -29,7 +29,15 @@ set +a
 echo -e "${GREEN}Environment loaded successfully.${NC}"
 
 echo -e "${CYAN}--- Starting Minikube ---${NC}"
-minikube start --driver=docker --cpus 4 --memory 4096 --wait=all
+# Check if minikube is paused, if so, unpause. If not running, start it.
+if minikube status | grep -q "Paused"; then
+    echo "Resuming minikube..."
+    minikube unpause
+else
+    echo "Starting minikube fresh..."
+    # Using the settings that worked for your 8GB RAM
+    minikube start --driver=docker --memory=2200 --cpus=2 --wait=false
+fi
 
 echo -e "${YELLOW}--- Linking Context ---${NC}"
 minikube update-context
@@ -59,8 +67,11 @@ echo -e "${CYAN}--- Applying Manifests ---${NC}"
 kubectl apply -k ./k8s-manifests/
 
 echo -e "${YELLOW}--- Waiting for Pods to be Ready ---${NC}"
-sleep 10
-kubectl wait --for=condition=Ready pods --all --timeout=120s 
+sleep 15
+kubectl wait --for=condition=Ready pods --all --timeout=600s || {
+    echo -e "${YELLOW}Wait timed out, but pods may still be starting. Checking status...${NC}"
+    kubectl get pods
+}
 
 echo -e "${CYAN}Launching Admin Dashboard...${NC}"
 # Use & to run in the background so the script can continue to the next command

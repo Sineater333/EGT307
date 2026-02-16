@@ -17,7 +17,8 @@ echo -e "${YELLOW}--- Removing Cloud Secrets ---${NC}"
 kubectl delete secret mongodb-atlas-secret
 
 echo -e "${CYAN}--- Shutting Down Minikube Cluster ---${NC}"
-minikube stop
+echo "Freezing minikube to save RAM..."
+minikube pause
 
 echo -e "${CYAN}--- Cleaning up Local Tunnels ---${NC}"
 # Use standard taskkill to clean up minikube processes on Windows
