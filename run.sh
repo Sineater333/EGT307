@@ -35,7 +35,6 @@ if minikube status | grep -q "Paused"; then
     minikube unpause
 else
     echo "Starting minikube fresh..."
-    # Using the settings that worked for your 8GB RAM
     minikube start --driver=docker --memory=2200 --cpus=2 --wait=false
 fi
 
