@@ -182,12 +182,6 @@ docker-compose up --build
         kubectl delete secret mongodb-atlas-secret
         minikube pause # use minikube stop if u want to completely shuts down the container running the Kubernetes cluster. 
 
-	Use this command to get the pipeline started:
-
-		docker run --rm -v ${PWD}/saved_model:/app/saved_model taiweien/project_mlp_group25 run all true
-	
-	This will run all 4 models with fine tuning enabled.
-
 ## Ciii. How to Run: Kubernetes production (automated)
 
 If you want to deploy the entire stack, including cluster provisioning and secrets management with a single command, use the provided automation script.
