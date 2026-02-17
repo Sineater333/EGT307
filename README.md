@@ -97,7 +97,7 @@ The project is divided into five independent microservices to ensure modularity 
 - **`Docker-compose.yml`**: Used for Local Development. It spins up the entire stack with a single command without needing Kubernetes.
 
 - **`run.sh`**: The "Master setup" script using bash. It automates:
-    * Infrastructure Provisioning: Starts a Minikube cluster with optimized resources (4 CPUs, 4GB RAM).
+    * Infrastructure Provisioning: Starts a Minikube cluster with optimized resources (2 CPUs, 2.2GB RAM).
 
     * Dependency Management: Validates environment variables and synchronizes them into Kubernetes Secrets.
 
@@ -200,7 +200,7 @@ Run the setup script on git bash from the root directory of the project. This sc
 ```
 - What does the script do:
     
-    1. Cluster Setup: Starts Minikube with 4 CPUs and 4GB RAM.
+    1. Cluster Setup: Starts Minikube with 2 CPUs and 2GB RAM.
 
     2. Addons: Enables metrics-server (required for Horizontal Pod Autoscaling).
 
