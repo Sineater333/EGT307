@@ -113,14 +113,11 @@ The project is divided into five independent microservices to ensure modularity 
 
 - **`run.sh`**: The "Master setup" script using bash. It automates:
     * Infrastructure Provisioning: Starts a Minikube cluster with optimized resources (2 CPUs, 2.2GB RAM).
-
+    * Kubernetes Configuration: Enables metrics-server (required for HPA) and ingress addon.
     * Dependency Management: Validates environment variables and synchronizes them into Kubernetes Secrets.
-
-    * Kubernetes Configuration: Enables the metrics-server (required for the HPA to function).
-
     * Kubernetes Orchestration: Applies the Kustomization manifests to deploy all microservices in order.
-
-    * Automated Access: Triggers the Minikube Dashboard and tunnels the dashboard-service for immediate browser access.  
+    * Ingress & Tunnel: Creates LoadBalancer service for the ingress controller and starts minikube tunnel in background.
+    * Automated Access: Launches the Kubernetes Dashboard and makes the application accessible via http://maintenance.local/  
 
 - **`stop.sh`**: A cleanup script to safely spin down the cluster and remove active deployments.
 
@@ -141,19 +138,22 @@ docker-compose up --build
 
 ## Cii. How to Run: Kubernetes production (manual)
 
-- If you prefer start up kubernetes manually, use the method below.
+- If you prefer to set up Kubernetes manually step-by-step, use the method below.
 
-	Initial step: Start minikube:
+- **Prerequisite**: Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
 
-		minikube start
+        127.0.0.1 maintenance.local
 
-    enable metrics for Horizontal Pod Autoscaler:
+- **Step 1: Start Minikube**
+
+        minikube start --driver=docker --memory=2200 --cpus=2
+
+- **Step 2: Enable Required Addons**
 
         minikube addons enable metrics-server
+        minikube addons enable ingress
 
-- Setup secrets 
-
-    To allow Kubernetes to securely communicate with your cloud database:
+- **Step 3: Setup Environment & Secrets**
 
     1. Create a `.env` file based on the template:
     
@@ -163,74 +163,93 @@ docker-compose up --build
 
             kubectl create secret generic mongodb-atlas-secret --from-env-file=.env
     
-- Deploy Manifests
+- **Step 4: Deploy Manifests**
 
-    1. Apply the configuration: Use the -k flag to deploy the entire stack in the correct order from kustomization.yaml.
+    1. Apply the configuration using Kustomize:
 
-            kubectl apply -f k8s-manifests/
+            kubectl apply -k ./k8s-manifests/
 
-    2. Check Pods and ensure all are running
+    2. Verify all pods are running:
 
             kubectl get pods -w
     
-    3. Check HPA status (It may take 1-2 minutes to show '0%/50%')
+    3. Check HPA status (will show metrics after ~2 minutes):
 
             kubectl get hpa
 
-- Access the Application
+- **Step 5: Start Minikube Tunnel** (requires admin/sudo privileges in a separate terminal)
 
-    Because Minikube runs in a virtualized environment, a tunnel is needed to access the UI:
+        minikube tunnel
 
-    1. Open the Dashboard:
+    This exposes the LoadBalancer service for the ingress controller on localhost.
 
-            minikube service dashboard-service
+- **Step 6: Access the Application**
 
-    2. (Optional) Monitor via K8s Dashboard: To see a visual representation of your cluster health:
-    
-            minikube dashboard
+    - Dashboard: http://maintenance.local/
+    - API Gateway Docs: http://maintenance.local/api/docs
+    - Kubernetes Dashboard (optional for monitoring): `minikube dashboard`
 
-- Clean up 
+- **Clean Up**
 
-    To stop the services and remove all resources created by the manifests:
+    To stop services and remove all resources:
 
         kubectl delete -f k8s-manifests/
         kubectl delete secret mongodb-atlas-secret
-        minikube pause # use minikube stop if u want to completely shuts down the container running the Kubernetes cluster. 
+        minikube pause # or use 'minikube stop' to fully shut down the Minikube cluster 
 
 ## Ciii. How to Run: Kubernetes production (automated)
 
-If you want to deploy the entire stack, including cluster provisioning and secrets management with a single command, use the provided automation script.
+To deploy the entire stack automatically (Minikube, cluster setup, manifests, ingress, and tunnel) with a single command, use the provided automation script.
 
-- **Prerequisite** : 
+- **Prerequisites**:
     
     1. Ensure Minikube and Docker (or your preferred driver) are installed.
 
-    2. Copy .env.example to .env and update it with your mongo url.
+    2. Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
+    
+            127.0.0.1 maintenance.local
+
+    3. Copy `.env.example` to `.env` and update it with your MongoDB Atlas URL.
 
 - **Launch the Stack**:
-Run the setup script on git bash from the root directory of the project. This script will start Minikube, configure the environment, and deploy all services:
-``` 
+
+Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the project root directory:
+
+```bash
 ./run.sh
-
 ```
-- What does the script do:
+
+- **What the script does**:
     
-    1. Cluster Setup: Starts Minikube with 2 CPUs and 2GB RAM.
+    1. Cluster Setup: Starts Minikube with 2 CPUs and 2.2GB RAM.
 
-    2. Addons: Enables metrics-server (required for Horizontal Pod Autoscaling).
+    2. Addons: Enables metrics-server (required for HPA) and ingress addon.
 
-    3. Security: Automatically generates mongodb-atlas-secret from the .env file.
+    3. Security: Creates Kubernetes secret from your .env file.
 
-    4. Deployment: Applies all manifests via Kustomize (kubectl apply -k).
+    4. Deployment: Applies all manifests via Kustomize (including ingress and LoadBalancer service).
 
-    5. Auto-Access: Opens the Kubernetes Dashboard and the Streamlit UI in the browser once the pods are ready.
+    5. Dashboard: Launches Kubernetes Dashboard in the background.
 
-- Shutdown & Cleanup
-    - To safely spin down the cluster and puase all active deployments, secrets, and configurations, use the code below:
+    6. Tunnel: Starts `minikube tunnel` in the background to expose the LoadBalancer (may request admin/sudo privileges).
 
-    ```
+    7. Polling: Waits for the LoadBalancer to receive an external IP (up to 60 seconds).
+
+- **After the Script Completes**:
+
+    The dashboard and tunnel will continue running in the background. Access the application at:
+    - Dashboard: http://maintenance.local/
+    - API Gateway Docs: http://maintenance.local/api/docs
+
+- **Shutdown & Cleanup**
+
+    To safely stop all services and clean up resources:
+
+    ```bash
     ./stop.sh
-    ```    
+    ```
+
+    This stops Minikube and deletes all deployments and secrets.    
 
 ## E. Dataset information and sources
 
