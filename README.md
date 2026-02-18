@@ -1,11 +1,26 @@
 
 # EGT307 — README
 
-## Overview and objectives
+## Project Overview and Objectives
 
-This repository contains a modular, containerized microservices architecture designed for real-time machine failure prediction. The system utilizes a Two-Stage Machine Learning Pipeline to first identify if a failure is occurring and then diagnose the specific engineering cause (e.g., HDF, PWF, etc).
+### Domain: Machine Learning & Automation
+This project addresses the critical issue of unexpected machine downtime in manufacturing which will be costly. By leveraging real-time sensor data and a Duo-stage machine learning pipeline, our system predicts failures early and identifies specific failure types (e.g., Tool Wear(`TWF`), Heat Dissipation(`HDF`)).
 
-The goal of this project is to provide a "customer-centric" dashboard for factory managers to monitor equipment health, view historical failure trends stored in a Cloud Database (MongoDB Atlas), and ensure high availability through Kubernetes (Minikube) orchestration with auto-scaling capabilities.
+### Objectives 
+* **Engineering Goal**: Change from reactive to proactive maintenance using AI-driven insights to prevent any downtime from happening.
+
+* **System Goal**: Deploy a scalable, microservices-based independent services architecture orchestrated by Kubernetes.
+
+* **Customer Value**: Provide factory managers with a "customer-centric" dashboard for real-time data monitoring and historical data analysis.
+
+### Solution
+To solve the identified problem, the system carries out through three key layers:
+
+* **Data-Driven Intelligence**: We use the AI4I 2020 Predictive Maintenance Dataset to train the duo-stage model. The first stage detects if a failure has occurred or not, while the second stage will determine the specific failure causes (e.g., TWF, HDF, PWF, etc).
+
+* **Modular Microservices**: The application will be split into four independent services; the API Gateway service, the inference Service, database Service, and dashboard service. This ensures that if one component fails, the rest of the system can remain operational (fault tolerance and modularity).
+
+* **Scalable Orchestration**: The entire stack is containerized with docker and managed by Kubernetes. We implement Horizontal Pod Autoscaling (HPA) to automatically scale the inference service during periods of high sensor data throughput (Scalability).
 
 ## A. Group member name and email
 - Ong Zhao Ji (joedoe369lol@gmail.com)
