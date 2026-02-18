@@ -7,3 +7,5 @@ resources:
   - gateway-deployment.yaml
   - hpa.yaml
   - inference-deployment.yaml
+  - ingress-nginx-lb.yaml
+  - ingress.yaml

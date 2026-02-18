@@ -9,6 +9,9 @@ YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+echo -e "${CYAN}=== EGT307 Kubernetes Deployment Script ===${NC}"
+echo -e ""
+
 echo -e "${CYAN}--- Loading Environment Variables ---${NC}"
 
 # Check if .env exists, if not, check for .env.example
@@ -45,6 +48,9 @@ kubectl config use-context minikube
 echo -e "${CYAN}--- Enabling Metrics Server ---${NC}"
 minikube addons enable metrics-server
 
+echo -e "${CYAN}--- Enabling Ingress Addon ---${NC}"
+minikube addons enable ingress || true
+
 if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 else
@@ -72,11 +78,42 @@ kubectl wait --for=condition=Ready pods --all --timeout=600s || {
     kubectl get pods
 }
 
-echo -e "${CYAN}Launching Admin Dashboard...${NC}"
-# Use & to run in the background so the script can continue to the next command
+echo -e "${CYAN}--- Launching Kubernetes Admin Dashboard ---${NC}"
+# Open minikube dashboard in background (non-blocking)
 minikube dashboard &
+DASHBOARD_PID=$!
+sleep 3
 
-echo -e "${GREEN}Launching Application UI...${NC}"
-sleep 5
-# This will open the browser and keep the connection open
-minikube service dashboard-service
+echo -e "${CYAN}--- Enabling Ingress Controller LoadBalancer & Starting Tunnel ---${NC}"
+# Start minikube tunnel in background (required for LoadBalancer external IP on Minikube)
+nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
+TUNNEL_PID=$!
+sleep 2
+
+echo -e "${YELLOW}--- Waiting for LoadBalancer external IP (polling up to 60 seconds) ---${NC}"
+EXT_IP=""
+for i in {1..60}; do
+  EXT_IP=$(kubectl get svc ingress-nginx-lb -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+  if [ -n "$EXT_IP" ]; then
+    echo -e "${GREEN}✓ LoadBalancer assigned external IP: $EXT_IP${NC}"
+    break
+  fi
+  echo -n "."
+  sleep 1
+done
+
+if [ -z "$EXT_IP" ]; then
+  echo -e "${YELLOW}⚠  External IP not yet assigned (may still be pending).${NC}"
+  echo -e "${YELLOW}   This is OK if minikube tunnel is running. Check 'kubectl get svc -n ingress-nginx' for status.${NC}"
+  EXT_IP="<PENDING>"
+fi
+
+echo -e "${GREEN}✓ Deployment Complete!${NC}"
+echo -e ""
+echo -e "${CYAN}=== NEXT STEPS ===${NC}"
+echo -e "${YELLOW}Open in browser:${NC}"
+echo -e "   ${GREEN}http://maintenance.local/${NC} (Dashboard)"
+echo -e "   ${GREEN}http://maintenance.local/api/docs${NC} (API Gateway)"
+echo -e ""
+echo -e "${YELLOW}Dashboard and tunnel are running in the background.${NC}"
+echo -e "${YELLOW}To check status: ${NC}kubectl get svc -n ingress-nginx"
