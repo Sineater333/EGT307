@@ -18,7 +18,7 @@ echo -e "${CYAN}--- Loading Environment Variables ---${NC}"
 if [ ! -f .env ]; then
     echo -e "${YELLOW}Missing .env file!${NC}"
     if [ -f .env.example ]; then
-        echo -e "Creating .env from template... please edit it with your Atlas URL."
+        echo -e "Creating .env from template... please edit it with your MongoDB URL."
         cp .env.example .env
     fi
     exit 1
@@ -51,13 +51,6 @@ minikube addons enable metrics-server
 echo -e "${CYAN}--- Enabling Ingress Addon ---${NC}"
 minikube addons enable ingress || true
 
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-else
-    echo "Error: .env file not found. Please create one with ATLAS_URL."
-    exit 1
-fi
-
 echo -e "${CYAN}--- Syncing Kubernetes Secrets ---${NC}"
 
 # Check if secret exists and delete it to ensure it updates with the latest .env values
@@ -68,52 +61,52 @@ kubectl create secret generic mongodb-atlas-secret --from-env-file=.env
 
 echo -e "${GREEN}Secrets synced from .env file successfully.${NC}"
 
-echo -e "${CYAN}--- Applying Manifests ---${NC}"
-kubectl apply -k ./k8s-manifests/
+echo -e "${CYAN}--- Waiting for Ingress Controller to be Ready ---${NC}"
+# Ensure ingress controller is running before applying ingress resources (prevents webhook race)
+kubectl wait -n ingress-nginx \
+  --for=condition=ready pod \
+  -l app.kubernetes.io/component=controller \
+  --timeout=180s || {
+    echo -e "${YELLOW}⚠ Ingress controller not ready yet. Continuing anyway, but ingress apply may fail.${NC}"
+  }
 
-echo -e "${YELLOW}--- Waiting for Pods to be Ready ---${NC}"
-sleep 15
-kubectl wait --for=condition=Ready pods --all --timeout=600s || {
-    echo -e "${YELLOW}Wait timed out, but pods may still be starting. Checking status...${NC}"
-    kubectl get pods
+echo -e "${CYAN}--- Applying Manifests (Kustomize) ---${NC}"
+kubectl apply -k ./k8s-manifests/ || {
+  echo -e "${YELLOW}⚠ Apply failed (often due to ingress webhook not ready). Retrying after 10s...${NC}"
+  sleep 10
+  kubectl apply -k ./k8s-manifests/
 }
 
-echo -e "${CYAN}--- Launching Kubernetes Admin Dashboard ---${NC}"
-# Open minikube dashboard in background (non-blocking)
-minikube dashboard &
-DASHBOARD_PID=$!
-sleep 3
+echo -e "${YELLOW}--- Checking Workloads ---${NC}"
+kubectl get pods
+kubectl get svc
+kubectl get ingress || true
 
-echo -e "${CYAN}--- Enabling Ingress Controller LoadBalancer & Starting Tunnel ---${NC}"
-# Start minikube tunnel in background (required for LoadBalancer external IP on Minikube)
-nohup minikube tunnel > /tmp/minikube-tunnel.log 2>&1 &
-TUNNEL_PID=$!
+echo -e "${CYAN}--- Launching Kubernetes Dashboard (optional) ---${NC}"
+# Dashboard is optional; on Windows it may open a browser automatically
+minikube dashboard &>/dev/null &
 sleep 2
 
-echo -e "${YELLOW}--- Waiting for LoadBalancer external IP (polling up to 60 seconds) ---${NC}"
-EXT_IP=""
-for i in {1..60}; do
-  EXT_IP=$(kubectl get svc ingress-nginx-lb -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-  if [ -n "$EXT_IP" ]; then
-    echo -e "${GREEN}✓ LoadBalancer assigned external IP: $EXT_IP${NC}"
-    break
-  fi
-  echo -n "."
-  sleep 1
-done
+echo -e "${CYAN}--- LoadBalancer + Tunnel Notes (Windows) ---${NC}"
+echo -e "${YELLOW}Minikube LoadBalancer requires 'minikube tunnel'.${NC}"
+echo -e "${YELLOW}On Windows, start it manually in an Administrator PowerShell and keep it open:${NC}"
+echo -e "   ${GREEN}minikube tunnel${NC}"
+echo -e ""
 
-if [ -z "$EXT_IP" ]; then
-  echo -e "${YELLOW}⚠  External IP not yet assigned (may still be pending).${NC}"
-  echo -e "${YELLOW}   This is OK if minikube tunnel is running. Check 'kubectl get svc -n ingress-nginx' for status.${NC}"
-  EXT_IP="<PENDING>"
-fi
+echo -e "${YELLOW}--- Checking LoadBalancer Status (may be <pending> until tunnel runs) ---${NC}"
+kubectl get svc -n ingress-nginx ingress-nginx-lb || true
+echo -e "${YELLOW}If EXTERNAL-IP is <pending>, run 'minikube tunnel' in an Admin PowerShell.${NC}"
 
 echo -e "${GREEN}✓ Deployment Complete!${NC}"
 echo -e ""
-echo -e "${CYAN}=== NEXT STEPS ===${NC}"
-echo -e "${YELLOW}Open in browser:${NC}"
-echo -e "   ${GREEN}http://maintenance.local/${NC} (Dashboard)"
-echo -e "   ${GREEN}http://maintenance.local/api/docs${NC} (API Gateway)"
+echo -e "${CYAN}=== ACCESS URLS ===${NC}"
+echo -e "   ${GREEN}http://maintenance.local/${NC} (Dashboard UI)"
+echo -e "   ${GREEN}http://maintenance.local/docs${NC} (API Swagger UI)"
+echo -e "   ${GREEN}http://maintenance.local/openapi.json${NC} (OpenAPI JSON)"
+echo -e "   ${GREEN}http://maintenance.local/api/health${NC} (API via /api prefix, if configured)"
 echo -e ""
-echo -e "${YELLOW}Dashboard and tunnel are running in the background.${NC}"
-echo -e "${YELLOW}To check status: ${NC}kubectl get svc -n ingress-nginx"
+echo -e "${CYAN}=== QUICK DEBUG COMMANDS ===${NC}"
+echo -e "   kubectl get pods"
+echo -e "   kubectl get ingress"
+echo -e "   kubectl describe ingress"
+echo -e "   kubectl logs deploy/api-gateway-deployment --tail=80"

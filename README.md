@@ -203,21 +203,40 @@ To deploy the entire stack automatically (Minikube, cluster setup, manifests, in
 
 - **Prerequisites**:
     
-    1. Ensure Minikube and Docker (or your preferred driver) are installed.
+    1. Install required tools:
+    - Minikube
+    - Docker (or your preferred Minikube driver)
+    - kubectl
 
-    2. Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
-    
+    Verify:
+    ```bash
+    minikube version
+    kubectl version --client
+    docker version
+    ```
+
+    2. Set up local domain (maintenance.local)
+    Add the following line to your hosts file:
+
+    Windows: C:\Windows\System32\drivers\etc\hosts (edit with Administrator):
             127.0.0.1 maintenance.local
 
-    3. Copy `.env.example` to `.env` and update it with your MongoDB Atlas URL.
+    3. Configure environment variables
+    Copy the example file and update your MongoDB Atlas URL:
+
+            ```bash
+            cp .env.example .env
+            ```
+    Update .env (example):
+            ```ATLAS_URL=mongodb+srv://232559W:1234567890@egt307.cuyzbyz.mongodb.net/maintenance_db?retryWrites=true&w=majority&appName=EGT307```
 
 - **Launch the Stack**:
 
 Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the project root directory:
 
-```bash
-./run.sh
-```
+    ```bash
+    ./run.sh
+    ```
 
 - **What the script does**:
     
@@ -229,17 +248,44 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
 
     4. Deployment: Applies all manifests via Kustomize (including ingress and LoadBalancer service).
 
-    5. Dashboard: Launches Kubernetes Dashboard in the background.
+    5. Tunnel: Starts `minikube tunnel` in the background to expose the LoadBalancer (may request admin/sudo privileges).
 
-    6. Tunnel: Starts `minikube tunnel` in the background to expose the LoadBalancer (may request admin/sudo privileges).
+    6. Polling: Waits for the LoadBalancer to receive an external IP (up to 60 seconds).
 
-    7. Polling: Waits for the LoadBalancer to receive an external IP (up to 60 seconds).
+- **If the App Is Not Reachable (Window)**:
+
+    1. Start the tunnel manually in **Administrator PowerShell** and keep it open:
+    ```powershell
+    minikube tunnel
+    ```
+
+    2. Confirm the LoadBalancer is assigned an External IP:
+    ```bash
+    kubectl get svc -n ingress-nginx ingress-nginx-lb
+    ```
 
 - **After the Script Completes**:
 
-    The dashboard and tunnel will continue running in the background. Access the application at:
-    - Dashboard: http://maintenance.local/
-    - API Gateway Docs: http://maintenance.local/api/docs
+    The tunnel (and any background processes started by the script) will remain running.
+
+    Access the application:
+
+    ***Dashboard (UI)***
+
+    http://maintenance.local/
+
+    ***API Gateway (Swagger UI)***
+
+    http://maintenance.local/docs
+
+    ***OpenAPI JSON***
+
+    http://maintenance.local/openapi.json
+
+    ***API endpoints via /api prefix***
+
+    Example health check: http://maintenance.local/api/health
+
 
 - **Shutdown & Cleanup**
 

@@ -8,4 +8,6 @@ resources:
   - hpa.yaml
   - inference-deployment.yaml
   - ingress-nginx-lb.yaml
-  - ingress.yaml
+  - ingress-dashboard.yaml
+  - ingress-api.yaml
+  - ingress-docs.yaml
