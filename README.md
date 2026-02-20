@@ -155,7 +155,9 @@ docker-compose up --build
 
 - **Prerequisite**: Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
 
-        127.0.0.1 maintenance.local
+        127.0.0.1   maintenance.local
+        127.0.0.1   api.local
+        127.0.0.1   docs.local
 
 - **Step 1: Start Minikube**
 
@@ -171,8 +173,12 @@ docker-compose up --build
     1. Create a `.env` file based on the template:
     
             cp .env.example .env
+    
+    2. Update .env (example):
+
+            ATLAS_URL=mongodb+srv://<USERNAME>:<PASSWORD>@<CLUSTER_ADDRESS>/maintenance_db?retryWrites=true&w=majority&appName=EGT307
         
-    2. Create the Kubernetes secret from your environment file:
+    3. Create the Kubernetes secret from your environment file:
 
             kubectl create secret generic mongodb-atlas-secret --from-env-file=.env
     
@@ -200,7 +206,10 @@ docker-compose up --build
 
     - Dashboard: http://maintenance.local/
     - API Gateway Docs: http://maintenance.local/api/docs
-    - Kubernetes Dashboard (optional for monitoring): `minikube dashboard`
+    - Kubernetes Dashboard (optional for monitoring): 
+
+            minikube dashboard
+    
 
 - **Clean Up**
 
@@ -216,40 +225,45 @@ To deploy the entire stack automatically (Minikube, cluster setup, manifests, in
 
 - **Prerequisites**:
     
-    1. Install required tools:
-    - Minikube
-    - Docker (or your preferred Minikube driver)
-    - kubectl
+1. Install required tools:
+- Minikube
+- Docker (or your preferred Minikube driver)
+- kubectl
 
-    Verify:
+Verify:
+```bash
+minikube version
+kubectl version --client
+docker version
+```
+
+2. Set up local domain (maintenance.local)
+
+Add the following line to your hosts file:
+
+Windows: `C:\Windows\System32\drivers\etc\hosts` (edit with Administrator):
+
+        127.0.0.1   maintenance.local
+        127.0.0.1   api.local
+        127.0.0.1   docs.local
+
+3. Configure environment variables
+Copy the example file and update your MongoDB Atlas URL:
+
     ```bash
-    minikube version
-    kubectl version --client
-    docker version
+    cp .env.example .env
     ```
+Update .env (example):
 
-    2. Set up local domain (maintenance.local)
-    Add the following line to your hosts file:
-
-    Windows: C:\Windows\System32\drivers\etc\hosts (edit with Administrator):
-            127.0.0.1 maintenance.local
-
-    3. Configure environment variables
-    Copy the example file and update your MongoDB Atlas URL:
-
-            ```bash
-            cp .env.example .env
-            ```
-    Update .env (example):
-            ```ATLAS_URL=mongodb+srv://232559W:1234567890@egt307.cuyzbyz.mongodb.net/maintenance_db?retryWrites=true&w=majority&appName=EGT307```
+        ATLAS_URL=mongodb+srv://<USERNAME>:<PASSWORD>@<CLUSTER_ADDRESS>/maintenance_db?retryWrites=true&w=majority&appName=EGT307
 
 - **Launch the Stack**:
 
 Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the project root directory:
 
-    ```bash
-    ./run.sh
-    ```
+```bash
+./run.sh
+```
 
 - **What the script does**:
     
@@ -257,7 +271,7 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
 
     2. Addons: Enables metrics-server (required for HPA) and ingress addon.
 
-    3. Security: Creates Kubernetes secret from your .env file.
+    3. Security: Creates Kubernetes secret from your `.env` file.
 
     4. Deployment: Applies all manifests via Kustomize (including ingress and LoadBalancer service).
 
