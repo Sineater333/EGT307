@@ -74,28 +74,41 @@ The project is divided into five independent microservices to ensure modularity 
     └── stop.sh
 ```
 
-- **`api-gateway/`**: This service acts as the "Front door" for all client requests, providing a single endpoint for the UI while routing traffic to internal services:
-    - `main.py`: A FastAPI application that validates incoming sensor data and routes requests to the `inference-service` or `database-service`.
+- **`api-gateway/`**: This service acts as the single entry point (Front Door) for all client requests.It exposes unified endpoints to the UI and internally orchestrates communication between services:
+    - `main.py`: A FastAPI application that:
+    	- Receives prediction requests from the dashboard
+		- Forwards sensor data to the inference-service
+		- Logs prediction results to the database-service
+    	- Proxies historical data requests
 	- `Dockerfile`: Containerizes the gateway for consistent deployment across environments.
 	- `requirements.txt`: Minimal dependencies for high-performance routing (FastAPI, Uvicorn, Requests).
+
 
 - **`dashboard-ui/`**: The user interface, designed for factory floor managers to monitor equipment health in real-time:
     - `dashboard.py`: Built with Streamlit. It features:
         * Input Forms: For manual entry of machinery data (Torque, RPM, Temp).
-        * Visualization: Results showing failure probability, failure causes and historical data.
+        * Sends prediction requests to the API Gateway
+        * Retrieves historical logs via the API Gateway
+        * Displays analytics and visualizations
 	- `Dockerfile`: Sets up the Streamlit environment and exposes port 8501.
 	- `requirements.txt`: Includes streamlit, pandas, and plotly for data visualization.
 
-- **`database-service/`**: The persistence layer, this manages all interactions with the Cloud Database to ensure data integrity and persistence:
-	- `main.py`: A FastAPI wrapper for MongoDB Atlas. It handles logging every prediction and its associated sensor data.
+- **`database-service/`**: The persistence layer responsible for data storage:
+	- `main.py`:
+  		* Exposes /logs endpoint for storing prediction results
+        * Exposes /history endpoint for retrieving recent logs
+        * Connects to MongoDB Atlas
 	- `Dockerfile`: Configures the service to run within the cluster network.
 	- `requirements.txt`: Includes motor or pymongo for asynchronous database drivers.
 
-- **`inference-service/`**: The core containing the AI with the Two-Stage ML logic:
-	- `train.py`: The training file for the model, implemented with SMOTE to handle class imbalance and exports the trained artifacts.
+- **`inference-service/`**: The AI engine responsible purely for machine failure prediction:
+	- `train.py`: The training file for the model, implemented with SMOTE to handle class imbalance and exports the trained artifacts. Only Once.
 	- `main.py`: The inference API. It executes the Two-Stage Logic:
-        * Stage 1: Binary classification (Is there a failure or not?).
-        * Stage 2: If Failure is detected, triggers the second model to diagnose the specific type.
+        * Loads trained ML models
+        * Executes Two-Stage logic:
+        	* Stage 1: Binary classification (failure or not)
+			* Stage 2: Failure type diagnosis (if it fail)
+        * Returns prediction results to the API Gateway
 	- `models/`:
         * binary_model.pkl: The model to determine if there is failure or not, optimized for high Recall.
         * type_model.pkl: The model to diagnose the specific type of failure.
@@ -105,7 +118,7 @@ The project is divided into five independent microservices to ensure modularity 
 - **`k8s-manifests/`**: Configuration files for deploying the system to Kubernetes cluster (Minikube).
 	- `*-deployment.yaml`: Defines the desired state, replicas, and container images for each microservice.
 	- `hpa.yaml`: The Horizontal Pod Autoscaler(HPA) configuration, allowing the `inference-service` to scale up to 5 pods during heavy compute loads.
-	- `kustomization.yaml`: Orchestrates the deployment of all manifests as a single logical unit.
+	- `kustomization.yaml`: Bundles all manifests into one deployment unit..
 
 - **`.env.example`**: A template for environment variables (e.g., MONGO_URI). Actual .env files are ignored by git for security.
 
