@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: database-service
-        image: taiweien/egt307-database:v2 
+        image: jiaxian2325/egt307-database-service:v2 
         ports:
         - containerPort: 8000
         

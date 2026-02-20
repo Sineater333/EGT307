@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from typing import Optional
+
 
 app = FastAPI(title="Maintenance History Service")
 
@@ -18,7 +20,7 @@ class PredictionLog(BaseModel):
     torque: float
     tool_wear: int
     status: str
-    failure_cause: str
+    failure_cause: Optional[str] = None
     timestamp: str
 
 @app.post("/logs")

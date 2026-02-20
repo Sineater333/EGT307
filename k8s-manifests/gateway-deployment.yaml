@@ -14,12 +14,18 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: taiweien/egt307-gateway:v1 
+        image: jiaxian2325/egt307-gateway:v1
         ports:
         - containerPort: 8080
 
-        # --- RESOURCE MANAGEMENT ---
-        # This ensures the Gateway is stable and predictable
+        env:
+        - name: INFERENCE_URL
+          value: "http://inference-service:8000/predict"
+        - name: DB_LOG_URL
+          value: "http://database-service:8000/logs"
+        - name: DB_HISTORY_URL
+          value: "http://database-service:8000/history"
+
         resources:
           requests:
             cpu: "100m"
@@ -28,7 +34,6 @@ spec:
             cpu: "200m"
             memory: "128Mi"
 
-        # --- HEALTH CHECKS ---
         livenessProbe:
           httpGet:
             path: /health
@@ -45,11 +50,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: api-gateway 
+  name: api-gateway
 spec:
   selector:
     app: api-gateway
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080

@@ -14,11 +14,9 @@ spec:
     spec:
       containers:
       - name: dashboard-ui
-        image: taiweien/egt307-dashboard:v4 
+        image: jiaxian2325/egt307-dashboard-ui:v3
         ports:
         - containerPort: 8501
-        
-        # --- RESOURCE MANAGEMENT ---
         resources:
           requests:
             cpu: "100m"
@@ -26,13 +24,11 @@ spec:
           limits:
             cpu: "300m"
             memory: "256Mi"
-
-        # --- HEALTH CHECKS (SELF-HEALING) ---
         livenessProbe:
           httpGet:
             path: /
             port: 8501
-          initialDelaySeconds: 15  # Streamlit needs a bit of time to spin up
+          initialDelaySeconds: 15
           periodSeconds: 20
         readinessProbe:
           httpGet:
@@ -40,12 +36,9 @@ spec:
             port: 8501
           initialDelaySeconds: 5
           periodSeconds: 10
-
         env:
-        - name: GATEWAY_URL
-          value: "http://api-gateway:8080/route/predict" 
-        - name: DB_HISTORY_URL
-          value: "http://database-service:8000/history" 
+        - name: GATEWAY_BASE_URL
+          value: "http://api-gateway:8080"
 ---
 apiVersion: v1
 kind: Service

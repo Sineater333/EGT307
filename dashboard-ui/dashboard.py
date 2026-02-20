@@ -5,11 +5,10 @@ import os
 import plotly.express as px  # Added for advanced charting
 
 # --- Environment Variables for K8s ---
-# gateway handles the live predictions
-api_url = os.getenv("GATEWAY_URL", "http://api-gateway:8080/route/predict")
+base_url = os.getenv("GATEWAY_BASE_URL", "http://api-gateway:8080")
 
-# database-service handles the history retrieval
-db_history_url = os.getenv("DB_HISTORY_URL", "http://database-service:8000/history")
+api_url = f"{base_url}/predict"
+history_url = f"{base_url}/history"
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -99,7 +98,7 @@ with tab2:
     if st.button("🔄 Refresh History"):
         try:
             with st.spinner("Fetching logs..."):
-                resp = requests.get(db_history_url, timeout=5)
+                resp = requests.get(history_url, timeout=5)
                 resp.raise_for_status()
                 history_data = resp.json()
                 
@@ -122,13 +121,14 @@ with tab3:
 
     # Fetch data for charts
     try:
-        resp = requests.get(db_history_url, timeout=5)
+        resp = requests.get(history_url, timeout=5)
         resp.raise_for_status()
         data = resp.json()
         
         if data:
             df = pd.DataFrame(data)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df["timestamp"] = pd.to_datetime(df["timestamp"], format="mixed", errors="coerce", utc=True)
+            df = df.dropna(subset=["timestamp"])
 
             # --- Row 1: Executive Summary ---
             col_a, col_b = st.columns(2)
@@ -138,13 +138,13 @@ with tab3:
                 # Pie Chart for Nominal vs Failure
                 fig_pie = px.pie(df, names='status', hole=0.4, 
                                  color='status', 
-                                 color_discrete_map={'No Failure': '#2ecc71', 'Failure Detected': '#e74c3c'})
+                                 color_discrete_map={'Healthy': '#2ecc71', 'Failure Detected': '#e74c3c'})
                 st.plotly_chart(fig_pie, use_container_width=True)
 
             with col_b:
                 st.markdown("### 2. Failure Distribution")
                 # Filter only failures for the bar chart
-                fail_df = df[df['failure_cause'] != "None"]
+                fail_df = df[df['failure_cause'] != True]
                 if not fail_df.empty:
                     fig_bar = px.bar(fail_df['failure_cause'].value_counts().reset_index(), 
                                      x='count', y='failure_cause', orientation='h',
@@ -192,15 +192,16 @@ with tab3:
 # --- Sidebar ---
 with st.sidebar:
     st.header("System Status")
-    # Simple health check visual
-    for name, url in {"Gateway": api_url, "DB Service": db_history_url}.items():
+
+    for name, url in {"Gateway": f"{base_url}/health"}.items():
         try:
-            # Check the health endpoints (assuming they exist)
-            h_url = url.replace("/route/predict", "/health").replace("/history", "/health")
-            if requests.get(h_url, timeout=1).status_code == 200:
+            if requests.get(url, timeout=1).status_code == 200:
                 st.success(f"● {name} Online")
-            else: st.warning(f"● {name} Lagging")
-        except: st.error(f"● {name} Offline")
-    
+            else:
+                st.warning(f"● {name} Lagging")
+        except:
+            st.error(f"● {name} Offline")
+
     st.divider()
-    if st.button("Reset Inputs"): st.rerun()
+    if st.button("Reset Inputs"):
+        st.rerun()

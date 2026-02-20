@@ -1,13 +1,11 @@
 services:
-  # 1. The Database
   mongodb:
     image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db  # Ensures logs survive a container restart
+      - mongo_data:/data/db
 
-  # 2. Database Wrapper Service
   database-service:
     build: ./database-service
     ports:
@@ -17,36 +15,32 @@ services:
     depends_on:
       - mongodb
 
-  # 3. AI Core
   inference-service:
     build: ./inference-service
     ports:
       - "8002:8000"
-    environment:
-      - DB_SERVICE_URL=http://database-service:8000/logs
     depends_on:
       - database-service
 
-  # 4. The Front Door
   api-gateway:
     build: ./api-gateway
     ports:
       - "8080:8080"
     environment:
-      - INFERENCE_URL=http://inference-service:8000/predict 
+      - INFERENCE_URL=http://inference-service:8000/predict
+      - DB_LOG_URL=http://database-service:8000/logs
+      - DB_HISTORY_URL=http://database-service:8000/history
     depends_on:
       - inference-service
 
-  # 5. User Interface
   dashboard-ui:
     build: ./dashboard-ui
     ports:
       - "8501:8501"
     environment:
-      - GATEWAY_URL=http://api-gateway:8080/route/predict
-      - DB_HISTORY_URL=http://database-service:8000/history
+      - GATEWAY_BASE_URL=http://api-gateway:8080
     depends_on:
       - api-gateway
 
 volumes:
-  mongo_data: # Defined volume for persistence
+  mongo_data:
