@@ -156,8 +156,6 @@ docker-compose up --build
 - **Prerequisite**: Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
 
         127.0.0.1   maintenance.local
-        127.0.0.1   api.local
-        127.0.0.1   docs.local
 
 - **Step 1: Start Minikube**
 
@@ -244,8 +242,6 @@ Add the following line to your hosts file:
 Windows: `C:\Windows\System32\drivers\etc\hosts` (edit with Administrator):
 
         127.0.0.1   maintenance.local
-        127.0.0.1   api.local
-        127.0.0.1   docs.local
 
 3. Configure environment variables
 Copy the example file and update your MongoDB Atlas URL:
