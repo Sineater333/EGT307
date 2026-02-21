@@ -2,12 +2,10 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: docs-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
   rules:
-  - host: docs.local
+  - host: maintenance.local
     http:
       paths:
       - path: /docs
@@ -17,8 +15,8 @@ spec:
             name: api-gateway
             port:
               number: 8080
-      - path: /openapi\.json
-        pathType: ImplementationSpecific
+      - path: /openapi.json
+        pathType: Exact
         backend:
           service:
             name: api-gateway
