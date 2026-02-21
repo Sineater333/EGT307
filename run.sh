@@ -51,6 +51,12 @@ minikube addons enable metrics-server
 echo -e "${CYAN}--- Enabling Ingress Addon ---${NC}"
 minikube addons enable ingress || true
 
+echo -e "${CYAN}--- Cleaning up old Ingress State ---${NC}"
+# Delete the ingresses first so they are recreated fresh
+kubectl delete ingress api-ingress dashboard-ingress docs-ingress --ignore-not-found --now
+# Delete the internal NGINX webhook 
+kubectl delete validatingwebhookconfiguration ingress-nginx-admission --ignore-not-found
+
 echo -e "${CYAN}--- Syncing Kubernetes Secrets ---${NC}"
 
 # Check if secret exists and delete it to ensure it updates with the latest .env values
@@ -76,6 +82,9 @@ kubectl apply -k ./k8s-manifests/ || {
   sleep 10
   kubectl apply -k ./k8s-manifests/
 }
+echo -e "2. If 'minikube tunnel' is already running, ${YELLOW}STOP IT (Ctrl+C)${NC} and ${GREEN}RESTART IT${NC} now."
+echo -e "3. Waiting 15 seconds for NGINX to load rules..."
+sleep 15
 
 echo -e "${YELLOW}--- Checking Workloads ---${NC}"
 kubectl get pods
