@@ -229,7 +229,7 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
 
 - **If the App Is Not Reachable (Window)**:
 
-    1. Start the tunnel manually in powershell and keep it open:
+    1. Start the minikube tunnel manually in powershell and keep it open:
     ```powershell
     minikube tunnel
     ```
