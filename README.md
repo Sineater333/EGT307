@@ -63,7 +63,10 @@ The project is divided into five independent microservices to ensure modularity 
         ├── gateway-deployment.yaml
         ├── hpa.yaml
         ├── inference-deployment.yaml
-        ├── ingress.yaml
+        ├── ingress-dashboard.yaml
+        ├── ingress-docs.yaml
+        ├── ingress-nginx.yaml
+        ├── ingress-api.yaml
         ├── kustomization.yaml
     ├── .dockerignore
     ├── .env.example
@@ -116,9 +119,18 @@ The project is divided into five independent microservices to ensure modularity 
     - `logs/`: Contains `prediction_history.csv` used for local debugging.
 
 - **`k8s-manifests/`**: Configuration files for deploying the system to Kubernetes cluster (Minikube).
-	- `*-deployment.yaml`: Defines the desired state, replicas, and container images for each microservice.
-	- `hpa.yaml`: The Horizontal Pod Autoscaler(HPA) configuration, allowing the `inference-service` to scale up to 5 pods during heavy compute loads.
-	- `kustomization.yaml`: Bundles all manifests into one deployment unit..
+	- `*-deployment.yaml`: Defines how each service run, including container image version, number of replicas, CPU/memory resource limits.
+	- `hpa.yaml`: Horizontal Pod Autoscaler configuration that automatically scales the inference-service based on workload (e.g., CPU usage), up to 5 replicas during heavy computation.
+    - `dashboard-deployment.yaml`: Deploys the Streamlit dashboard UI and exposes it internally via dashboard-service (ClusterIP). The dashboard communicates with the API Gateway through internal Kubernetes DNS.
+    - `database-deployment.yaml`: Deploys the database-service (Python wrapper for MongoDB Atlas). Securely loads the MONGO_URL from an env file nd exposes it internally via database-service.
+    - `gateway-deployment.yaml`: Deploys the FastAPI API Gateway, which acts as the central entry point for prediction, logging, and history APIs. Routes requests internally to inference-service and database-service.
+    - `inference-deployment.yaml`: Deploys the ML inference microservice responsible for model predictions. Configured with multiple replicas for load handling and fault tolerance.
+    - `ingress-dashboard.yaml`: Routes external traffic from maintenance.local/ to the dashboard UI service.
+    - `ingress-docs.yaml`: Exposes FastAPI documentation endpoints (/docs, /openapi.json) through the API Gateway.
+    - `ingress-api.yaml`: Routes external API requests from maintenance.local/api to the API Gateway service.
+    - `ingress-nginx-lb.yaml`: Exposes the NGINX Ingress Controller as a LoadBalancer service in Minikube, allowing external access to the cluster via port 80/443.
+	- `kustomization.yaml`:Groups all Kubernetes manifests into a single deployable unit using Kustomize (kubectl apply -k), simplifying cluster setup.
+
 
 - **`.env.example`**: A template for environment variables (e.g., MONGO_URI). Actual .env files are ignored by git for security.
 
@@ -149,75 +161,7 @@ docker-compose up --build
     * Dashboard: http://localhost:8501
     * API gateway docs: http://localhost:8080/docs
 
-## Cii. How to Run: Kubernetes production (manual)
-
-- If you prefer to set up Kubernetes manually step-by-step, use the method below.
-
-- **Prerequisite**: Add the following line to your hosts file (`C:\\Windows\\System32\\drivers\\etc\\hosts` on Windows, `/etc/hosts` on macOS/Linux with sudo):
-
-        127.0.0.1   maintenance.local
-
-- **Step 1: Start Minikube**
-
-        minikube start --driver=docker --memory=2200 --cpus=2
-
-- **Step 2: Enable Required Addons**
-
-        minikube addons enable metrics-server
-        minikube addons enable ingress
-
-- **Step 3: Setup Environment & Secrets**
-
-    1. Create a `.env` file based on the template:
-    
-            cp .env.example .env
-    
-    2. Update .env (example):
-
-            ATLAS_URL=mongodb+srv://<USERNAME>:<PASSWORD>@<CLUSTER_ADDRESS>/maintenance_db?retryWrites=true&w=majority&appName=EGT307
-        
-    3. Create the Kubernetes secret from your environment file:
-
-            kubectl create secret generic mongodb-atlas-secret --from-env-file=.env
-    
-- **Step 4: Deploy Manifests**
-
-    1. Apply the configuration using Kustomize:
-
-            kubectl apply -k ./k8s-manifests/
-
-    2. Verify all pods are running:
-
-            kubectl get pods -w
-    
-    3. Check HPA status (will show metrics after ~2 minutes):
-
-            kubectl get hpa
-
-- **Step 5: Start Minikube Tunnel** (requires admin/sudo privileges in a separate terminal)
-
-        minikube tunnel
-
-    This exposes the LoadBalancer service for the ingress controller on localhost.
-
-- **Step 6: Access the Application**
-
-    - Dashboard: http://maintenance.local/
-    - API Gateway Docs: http://maintenance.local/api/docs
-    - Kubernetes Dashboard (optional for monitoring): 
-
-            minikube dashboard
-    
-
-- **Clean Up**
-
-    To stop services and remove all resources:
-
-        kubectl delete -f k8s-manifests/
-        kubectl delete secret mongodb-atlas-secret
-        minikube pause # or use 'minikube stop' to fully shut down the Minikube cluster 
-
-## Ciii. How to Run: Kubernetes production (automated)
+## Cii. How to Run: Kubernetes production (automated)
 
 To deploy the entire stack automatically (Minikube, cluster setup, manifests, ingress, and tunnel) with a single command, use the provided automation script.
 
@@ -228,34 +172,44 @@ To deploy the entire stack automatically (Minikube, cluster setup, manifests, in
 - Docker (or your preferred Minikube driver)
 - kubectl
 
-Verify:
+Verify in bash/powershell:
 ```bash
 minikube version
 kubectl version --client
 docker version
 ```
 
-2. Set up local domain (maintenance.local)
+2. Map IP address to local DNS : (So when user run "maintenance.local" it brings it to the ip address)
 
-Add the following line to your hosts file:
+**Window:**
 
-Windows: `C:\Windows\System32\drivers\etc\hosts` (edit with Administrator):
+Run notepad in Administrator and open the file :
+
+ `C:\Windows\System32\drivers\etc\hosts` 
+
+Add the following line to your hosts file: 
 
         127.0.0.1   maintenance.local
 
+Save the file.
+
 3. Configure environment variables
-Copy the example file and update your MongoDB Atlas URL:
+
+Navigate to directory that contains `.env.example` :
+
+Copy the example file 
 
     ```bash
     cp .env.example .env
     ```
-Update .env (example):
+
+Update your MongoDB Atlas URL in .env (example): (actual link in the presentation slide)
 
         ATLAS_URL=mongodb+srv://<USERNAME>:<PASSWORD>@<CLUSTER_ADDRESS>/maintenance_db?retryWrites=true&w=majority&appName=EGT307
 
 - **Launch the Stack**:
 
-Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the project root directory:
+Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the project root directory: 
 
 ```bash
 ./run.sh
@@ -277,7 +231,7 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
 
 - **If the App Is Not Reachable (Window)**:
 
-    1. Start the tunnel manually in **Administrator PowerShell** and keep it open:
+    1. Start the tunnel manually in powershell and keep it open:
     ```powershell
     minikube tunnel
     ```
@@ -404,3 +358,28 @@ To ensure model quality even though the dataset is clean, the following steps we
 
 ## F. Issues and limitations
 
+1. This project was deployed on minikube instead of a cloud-nmanaged kubernetes environment.
+
+2. Ingress configuration and local DNS mapping :
+
+To access services via maintenance.local, local host mapping was required.
+
+**Issues faced:**
+
+    - Had to manually edit Windows hosts file as administrator
+    - Ingress controller required Minikube tunnel
+    - Port forwarding sometimes conflicted with existing services
+
+Ingress routing is simulated locally and depends on manual configuration.In a real production, a cloud load balancer and proper DNS management would replace this setup.
+
+3. MangoDB Architecture Decision:
+
+For Local MongoDB with PVC, the database state is bound to a single-node minikube cluster, data persistence is limited to host machine. To make the system support cross-machine state sharing a cloud database Mongodb Atlas was being used.
+
+**Issue Faced:**
+
+    - Atlas require environment handling (env.)
+
+4. Ensuring loose coupling achitecture:
+
+Multiple services were accessing the database directly, creating a tangled architecture that was difficult to debug and scale,we had to move the functions to api-gateway so communication is clean and single entry point for all data flow.
