@@ -225,9 +225,7 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
 
     4. Deployment: Applies all manifests via Kustomize (including ingress and LoadBalancer service).
 
-    5. Tunnel: Starts `minikube tunnel` in the background to expose the LoadBalancer (may request admin/sudo privileges).
-
-    6. Polling: Waits for the LoadBalancer to receive an external IP (up to 60 seconds).
+    5. Polling: Waits for the LoadBalancer to receive an external IP (up to 60 seconds).
 
 - **If the App Is Not Reachable (Window)**:
 
@@ -236,7 +234,7 @@ Run the setup script on Git Bash (Windows) or bash (macOS/Linux) from the projec
     minikube tunnel
     ```
 
-    2. Confirm the LoadBalancer is assigned an External IP:
+    2. Confirm the LoadBalancer is assigned an External IP: (Optional)
     ```bash
     kubectl get svc -n ingress-nginx ingress-nginx-lb
     ```
