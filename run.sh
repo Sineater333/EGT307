@@ -58,17 +58,20 @@ echo -e "${CYAN}--- Enabling Ingress Addon ---${NC}"
 minikube addons enable ingress || true
 
 echo -e "${CYAN}--- Cleaning up old Ingress State ---${NC}"
-# Note: Added -n $NAMESPACE to ensure we clean the right area
-kubectl delete ingress api-ingress dashboard-ingress docs-ingress -n $NAMESPACE --ignore-not-found --now
+# Delete the ingresses first so they are recreated fresh
+kubectl delete ingress api-ingress dashboard-ingress docs-ingress --ignore-not-found --now
+# Delete the internal NGINX webhook 
 kubectl delete validatingwebhookconfiguration ingress-nginx-admission --ignore-not-found
 
 echo -e "${CYAN}--- Syncing Kubernetes Secrets ---${NC}"
 
-# --- UPDATED: TARGET SPECIFIC NAMESPACE ---
-kubectl delete secret mongodb-atlas-secret -n $NAMESPACE --ignore-not-found
-kubectl create secret generic mongodb-atlas-secret --from-env-file=.env -n $NAMESPACE
+# Check if secret exists and delete it to ensure it updates with the latest .env values
+kubectl delete secret mongodb-atlas-secret --ignore-not-found
 
-echo -e "${GREEN}Secrets synced to namespace '${NAMESPACE}' successfully.${NC}"
+# Create the secret directly from the file
+kubectl create secret generic mongodb-atlas-secret --from-env-file=.env -n egt307-app
+
+echo -e "${GREEN}Secrets synced from .env file successfully.${NC}"
 
 echo -e "${CYAN}--- Waiting for Ingress Controller to be Ready ---${NC}"
 # Ensure ingress controller is running before applying ingress resources (prevents webhook race)
@@ -82,7 +85,7 @@ kubectl wait -n ingress-nginx \
 echo -e "${CYAN}--- Applying Manifests (Kustomize) ---${NC}"
 # Kustomize will use the 'namespace: egt307-app'
 kubectl apply -k ./k8s-manifests/ || {
-  echo -e "${YELLOW}⚠ Apply failed. Retrying after 10s...${NC}"
+  echo -e "${YELLOW}⚠ Apply failed (often due to ingress webhook not ready). Retrying after 10s...${NC}"
   sleep 10
   kubectl apply -k ./k8s-manifests/
 }
@@ -109,29 +112,8 @@ echo -e "${GREEN}✓ Context switched. 'kubectl get pods' will now show egt307-a
 
 echo -e "${CYAN}--- Launching Kubernetes Dashboard (optional) ---${NC}"
 # Dashboard is optional; on Windows it may open a browser automatically
-taskkill //F //IM "kubectl.exe" //T 2>/dev/null || true
-
-nohup minikube tunnel > /dev/null 2>&1 &
-
-echo -e "${GREEN}✓ Tunnel is running in the background.${NC}"
-
-# 2. Start the dashboard in a completely detached way
-# We use 'nohup' and '&' to ensure it doesn't hold the terminal hostage
-nohup minikube dashboard --url > dashboard_url.txt 2>&1 &
-
-# 3. Wait for the proxy to generate the URL in the text file
-echo "Waiting for dashboard proxy to initialize..."
-sleep 5
-
-# 4. Extract the URL and open it with the namespace fragment
-DASH_URL=$(grep -o 'http://127.0.0.1:[0-9]*' dashboard_url.txt | head -n 1 || echo "http://127.0.0.1:8001")
-FINAL_URL="${DASH_URL}/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/#/workloads?namespace=${NAMESPACE}"
-
-echo -e "${GREEN}Opening Dashboard: ${FINAL_URL}${NC}"
-powershell.exe -Command "Start-Process '$FINAL_URL'"
-
-# Clean up the temp file
-rm dashboard_url.txt
+minikube dashboard &>/dev/null &
+sleep 2
 
 echo -e "${CYAN}--- LoadBalancer + Tunnel Notes (Windows) ---${NC}"
 echo -e "${YELLOW}Minikube LoadBalancer requires 'minikube tunnel'.${NC}"
@@ -139,8 +121,9 @@ echo -e "${YELLOW}On Windows, start it manually in an Administrator PowerShell a
 echo -e "   ${GREEN}minikube tunnel${NC}"
 echo -e ""
 
-echo -e "${YELLOW}--- Checking LoadBalancer Status ---${NC}"
+echo -e "${YELLOW}--- Checking LoadBalancer Status (may be <pending> until tunnel runs) ---${NC}"
 kubectl get svc -n ingress-nginx ingress-nginx-lb || true
+echo -e "${YELLOW}If EXTERNAL-IP is <pending>, run 'minikube tunnel' in an Admin PowerShell.${NC}"
 
 echo -e "${GREEN}✓ Deployment Complete!${NC}"
 echo -e ""
